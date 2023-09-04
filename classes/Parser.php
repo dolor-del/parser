@@ -8,8 +8,6 @@ use Exception;
 
 class Parser
 {
-    const URL_API = 'https://api.zenrows.com/v1/?apikey=fb4552482691386dbfd1879c472a928659b1ac6a&url=';
-
     /**
      * @var string
      */
@@ -26,6 +24,11 @@ class Parser
     private $_url;
 
     /**
+     * @var string
+     */
+    private $_fileName;
+
+    /**
      * @var array
      */
     private $_reviews = [];
@@ -34,9 +37,10 @@ class Parser
      * Parser constructor.
      * @param $url
      */
-    public function __construct($url)
+    public function __construct($params)
     {
-        $this->_url = $url;
+        $this->_url = $params['url'];
+        $this->_fileName = $params['fileName'];
     }
 
     /**
@@ -63,11 +67,11 @@ class Parser
         $content = $this->request($this->_url);
 
         /** @var DOMDocument $dom */
-        if (!(($dom = $this->loadDOM($content)) instanceof DOMDocument)) {
+        if ( !( ($dom = $this->loadDOM($content) ) instanceof DOMDocument ) ) {
             throw new Exception('Ошибка загрузки DOMDocument');
         }
 
-        preg_match('/\((\d+)\)$/', trim((new DOMXPath($dom))
+        preg_match('/\((\d+)\)$/', trim( ( new DOMXPath($dom) )
                                                     ->query("/html/body/div/div/h2", $dom)
                                                     ->item(0)
                                                     ->textContent), $matches);
@@ -92,7 +96,7 @@ class Parser
     public function parseReviews()
     {
         /** @var DOMDocument $dom */
-        if (!(($dom = $this->loadDOM($this->_content)) instanceof DOMDocument)) {
+        if ( !( ($dom = $this->loadDOM($this->_content) ) instanceof DOMDocument) ) {
             throw new Exception('Ошибка загрузки DOMDocument');
         }
 
@@ -102,15 +106,16 @@ class Parser
         for ($i = 2; $i <= $this->_countReviews + 1; $i++) {
             $review = [];
 
-            $review['reviewName']   = trim($xpath->query("/html/body/div/div/div[{$i}]/div[1]/a/div[2]", $dom)->item(0)->textContent);
-            $review['reviewRating'] = trim($xpath->query("/html/body/div/div/div[{$i}]/div[2]/div[1]/span[1]", $dom)->item(0)->textContent);
-            $review['reviewDate']   = trim($xpath->query("/html/body/div/div/div[{$i}]/div[2]/span", $dom)->item(0)->textContent);
-            $review['reviewText']   = trim($xpath->query("/html/body/div/div/div[{$i}]/div[2]/div[2]", $dom)->item(0)->textContent);
+            $review['reviewName']   = trim( $xpath->query("/html/body/div/div/div[{$i}]/div[1]/a/div[2]", $dom)->item(0)->textContent );
+            $review['reviewRating'] = trim( $xpath->query("/html/body/div/div/div[{$i}]/div[2]/div[1]/span[1]", $dom)->item(0)->textContent );
+            $review['reviewDate']   = trim( $xpath->query("/html/body/div/div/div[{$i}]/div[2]/span", $dom)->item(0)->textContent );
+            $review['reviewText']   = trim( $xpath->query("/html/body/div/div/div[{$i}]/div[2]/div[2]", $dom)->item(0)->textContent );
 
             $reply = $xpath->query("/html/body/div/div/div[{$i}]/div[4]/div[2]/div[2]/div", $dom)->item(0)->textContent;
+
             if ($reply !== null) {
-                $review['reply']['replyName'] = trim($xpath->query("/html/body/div/div/div[{$i}]/div[4]/div[2]/div[1]/div/b", $dom)->item(0)->textContent);
-                $review['reply']['replyText'] = trim($reply);
+                $review['reply']['replyName'] = trim( $xpath->query("/html/body/div/div/div[{$i}]/div[4]/div[2]/div[1]/div/b", $dom)->item(0)->textContent );
+                $review['reply']['replyText'] = trim( $reply );
             }
 
             $reviews[] = $review;
@@ -133,9 +138,14 @@ class Parser
     {
         $curl = curl_init();
 
-        curl_setopt($curl, CURLOPT_URL, self::URL_API . urlencode($url));
-        curl_setopt($curl, CURLOPT_RETURNTRANSFER, true);
-        curl_setopt($curl, CURLOPT_HEADER, false);
+        curl_setopt_array($curl, [
+            CURLOPT_RETURNTRANSFER => true,
+            CURLOPT_SSL_ENABLE_ALPN => false,
+            CURLOPT_URL => $url,
+            CURLOPT_HTTPHEADER => [
+                'User-Agent: Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/104.0.0.0 Safari/537.36'
+            ],
+        ]);
 
         $response     = curl_exec($curl);
         $errorMessage = curl_error($curl);
@@ -165,7 +175,7 @@ class Parser
         $dom = new DOMDocument();
 
         libxml_use_internal_errors(true);
-        if (!$dom->loadHTML('<head><meta http-equiv="Content-Type" content="text/html; charset=UTF-8" /></head>' . $content)) {
+        if ( !$dom->loadHTML('<head><meta http-equiv="Content-Type" content="text/html; charset=UTF-8" /></head>' . $content) ) {
             throw new Exception('Ошибка загрузки HTML в DOMDocument');
         }
         libxml_use_internal_errors(false);
@@ -175,12 +185,11 @@ class Parser
 
     /**
      * Сохранение массива с отзывами в виде файла json
-     * @param string $fileName
      * @throws Exception
      */
-    public function saveDataJson($fileName)
+    public function saveDataJson()
     {
-        if (!file_put_contents('resources/' . $fileName, json_encode($this->_reviews, JSON_UNESCAPED_UNICODE))) {
+        if ( !file_put_contents('resources/' . $this->_fileName, json_encode($this->_reviews, JSON_UNESCAPED_UNICODE) ) ) {
             throw new Exception('Ошибка сохранения файла');
         }
     }

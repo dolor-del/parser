@@ -2,15 +2,15 @@
 
 use classes\Parser;
 
-define('URL', 'https://www.yell.ru/company/reviews/?id=1942069&sort=recent');
-define('FILENAME', 'reviews.json');
+require 'classes/Autoloader.php';
 
-include 'config/Autoloader.php';
+$config = require 'config/config.php';
 
 try {
-    $content = (new Parser(URL))->run();
+    $content = ( new Parser($config) )->run();
 
-    $content->saveDataJson(FILENAME);
+    $content->saveDataJson();
+    echo '<pre>'.print_r($content->getReviews(),1).'</pre>';
 } catch (Exception $e) {
     echo $e->getMessage();
 }
